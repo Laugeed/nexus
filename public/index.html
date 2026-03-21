@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS Messenger</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<!-- ══ AUTH ══════════════════════════════════════ -->
+<div id="authScreen" class="screen active">
+  <div class="auth-bg">
+    <div class="orb orb1"></div>
+    <div class="orb orb2"></div>
+    <div class="orb orb3"></div>
+  </div>
+  <div class="auth-card">
+    <div class="auth-logo">NEXUS</div>
+    <div class="auth-sub">Твой мессенджер</div>
+
+    <div class="auth-tabs">
+      <div class="atab active" id="tabLogin" onclick="switchTab('login')">Войти</div>
+      <div class="atab" id="tabReg" onclick="switchTab('reg')">Регистрация</div>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="loginForm">
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="lUser" placeholder="@username" autocomplete="username">
+      </div>
+      <div class="field">
+        <label>Пароль</label>
+        <input type="password" id="lPass" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <div id="loginErr" class="form-err"></div>
+      <button class="btn-main" onclick="doLogin()">Войти</button>
+    </div>
+
+    <!-- REGISTER -->
+    <div id="regForm" style="display:none">
+      <div class="field">
+        <label>Имя</label>
+        <input type="text" id="rName" placeholder="Иван Иванов">
+      </div>
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="rUser" placeholder="любой_ник" autocomplete="username">
+      </div>
+      <div class="field">
+        <label>Пароль</label>
+        <input type="password" id="rPass" placeholder="••••••••" autocomplete="new-password">
+      </div>
+      <div id="regErr" class="form-err"></div>
+      <button class="btn-main" onclick="doRegister()">Создать аккаунт</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP ═══════════════════════════════════════ -->
+<div id="appScreen" class="screen">
+  <div class="layout">
+
+    <!-- LEFT NAV -->
+    <nav class="lnav">
+      <div class="lnav-logo">N</div>
+      <div class="lnav-icon active" data-nav="chats" onclick="setNav(this,'chats')" title="Чаты">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <div class="lnav-icon" data-nav="contacts" onclick="setNav(this,'contacts')" title="Контакты">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <div class="nav-dot" id="contactDot" style="display:none"></div>
+      </div>
+      <div class="lnav-spacer"></div>
+      <div class="lnav-icon" onclick="openMyProfile()" title="Мой профиль" id="myAvaNav">
+        <span id="myAvaEmoji" style="font-size:22px">🙂</span>
+      </div>
+      <div class="lnav-icon" onclick="doLogout()" title="Выйти">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </div>
+    </nav>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+
+      <!-- CHATS panel -->
+      <div id="panelChats">
+        <div class="sidebar-head">
+          <span class="sidebar-title">Чаты</span>
+          <button class="icon-btn" onclick="showAddContact()" title="Найти пользователя">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+        <div class="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" placeholder="Поиск..." id="chatSearch" oninput="renderContacts()">
+        </div>
+        <div class="contacts-list" id="contactsList">
+          <div class="empty-contacts">
+            <div style="font-size:36px;margin-bottom:10px">💬</div>
+            <div>Добавьте контакты чтобы начать общение</div>
+            <button class="btn-outline" style="margin-top:14px" onclick="showAddContact()">Найти пользователя</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONTACTS panel -->
+      <div id="panelContacts" style="display:none">
+        <div class="sidebar-head">
+          <span class="sidebar-title">Контакты</span>
+          <button class="icon-btn" onclick="showAddContact()" title="Добавить">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+        <div class="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" placeholder="Поиск контактов..." id="contactSearch" oninput="renderContacts()">
+        </div>
+        <div class="contacts-list" id="contactsFullList"></div>
+      </div>
+
+    </div>
+
+    <!-- MAIN -->
+    <div class="main" id="mainArea">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-logo">NEXUS</div>
+        <div class="empty-hint">Выберите чат или найдите пользователя</div>
+        <button class="btn-outline" onclick="showAddContact()">+ Найти пользователя</button>
+      </div>
+      <div id="chatArea" style="display:none;flex-direction:column;height:100%">
+        <!-- topbar -->
+        <div class="topbar">
+          <div class="topbar-ava" id="chatAva"></div>
+          <div class="topbar-info">
+            <div class="topbar-name" id="chatName"></div>
+            <div class="topbar-status" id="chatStatus"></div>
+          </div>
+          <div class="topbar-actions">
+            <button class="icon-btn" onclick="sendFileDialog()" title="Отправить файл">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </button>
+          </div>
+        </div>
+        <!-- messages -->
+        <div class="msgs" id="msgs"></div>
+        <!-- typing -->
+        <div id="typingBar" style="display:none;padding:0 20px 6px">
+          <div class="typing-bubble">
+            <div class="tdot"></div><div class="tdot"></div><div class="tdot"></div>
+          </div>
+        </div>
+        <!-- input -->
+        <div class="input-bar">
+          <div id="replyBox" style="display:none" class="reply-box">
+            <span id="replyPreview"></span>
+            <button onclick="cancelReply()" class="close-btn">✕</button>
+          </div>
+          <div class="input-row">
+            <button class="icon-btn" onclick="sendFileDialog()" title="Прикрепить файл">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </button>
+            <div class="input-wrap">
+              <textarea id="msgInput" placeholder="Написать сообщение..." rows="1"
+                oninput="onTyping();autoGrow(this)"
+                onkeydown="onKey(event)"></textarea>
+            </div>
+            <button class="send-btn" onclick="sendMsg()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ MODALS ═════════════════════════════════════ -->
+
+<!-- Add contact modal -->
+<div class="modal-bg" id="modalAddContact" onclick="closeModal('modalAddContact')">
+  <div class="modal" onclick="e=>e.stopPropagation()">
+    <div class="modal-head">
+      <h3>Найти пользователя</h3>
+      <button class="close-btn" onclick="closeModal('modalAddContact')">✕</button>
+    </div>
+    <div class="search-wrap" style="margin:0 0 12px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="userSearchInput" placeholder="Введите username или имя..." oninput="searchUsers()">
+    </div>
+    <div id="userSearchResults" style="min-height:60px"></div>
+  </div>
+</div>
+
+<!-- Profile modal -->
+<div class="modal-bg" id="modalProfile" onclick="closeModal('modalProfile')">
+  <div class="modal" onclick="e=>e.stopPropagation()" id="profileContent"></div>
+</div>
+
+<!-- File picker (hidden) -->
+<input type="file" id="fileInput" style="display:none" onchange="doSendFile(this)">
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "nexus-messenger",
+  "version": "1.0.0",
+  "description": "NEXUS — твой мессенджер",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "npx nodemon server/index.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.18.2",
+    "multer": "^2.0.0",
+    "ws": "^8.16.0"
+  }
+}
