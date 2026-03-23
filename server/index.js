@@ -6,21 +6,35 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const webpush = require('web-push');
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
+
+// ── VAPID КЛЮЧИ (генерируются один раз) ──────────────
+const VAPID_FILE = path.join(__dirname, '..', 'vapid_keys.json');
+let vapidKeys;
+if (fs.existsSync(VAPID_FILE)) {
+  vapidKeys = JSON.parse(fs.readFileSync(VAPID_FILE, 'utf8'));
+} else {
+  vapidKeys = webpush.generateVAPIDKeys();
+  fs.writeFileSync(VAPID_FILE, JSON.stringify(vapidKeys));
+}
+webpush.setVapidDetails('mailto:nexus@app.com', vapidKeys.publicKey, vapidKeys.privateKey);
 
 // ── БАЗА ДАННЫХ (JSON файл) ───────────────────────────
 const DB_FILE = path.join(__dirname, '..', 'nexus_data.json');
 
 function loadDB() {
   if (!fs.existsSync(DB_FILE)) {
-    const empty = { users: [], sessions: [], contacts: [], messages: [] };
+    const empty = { users: [], sessions: [], contacts: [], messages: [], push_subscriptions: [] };
     fs.writeFileSync(DB_FILE, JSON.stringify(empty, null, 2));
     return empty;
   }
-  return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  if (!db.push_subscriptions) db.push_subscriptions = [];
+  return db;
 }
 
 function saveDB(db) {
@@ -60,6 +74,33 @@ function auth(req, res, next) {
   req.token = token;
   next();
 }
+
+// ── PUSH УВЕДОМЛЕНИЯ ─────────────────────────────────
+
+// Отдать публичный VAPID ключ фронтенду
+app.get('/api/push/vapid-public-key', (req, res) => {
+  res.json({ publicKey: vapidKeys.publicKey });
+});
+
+// Сохранить подписку
+app.post('/api/push/subscribe', auth, (req, res) => {
+  const subscription = req.body;
+  if (!subscription?.endpoint) return res.status(400).json({ error: 'Нет подписки' });
+  const db = loadDB();
+  // Удалить старую подписку этого пользователя если есть
+  db.push_subscriptions = db.push_subscriptions.filter(s => s.user_id !== req.userId);
+  db.push_subscriptions.push({ user_id: req.userId, subscription });
+  saveDB(db);
+  res.json({ ok: true });
+});
+
+// Удалить подписку
+app.post('/api/push/unsubscribe', auth, (req, res) => {
+  const db = loadDB();
+  db.push_subscriptions = db.push_subscriptions.filter(s => s.user_id !== req.userId);
+  saveDB(db);
+  res.json({ ok: true });
+});
 
 // ── СБРОС ПАРОЛЯ ─────────────────────────────────────
 app.post('/api/reset-password', (req, res) => {
@@ -196,6 +237,18 @@ app.post('/api/messages', auth, (req, res) => {
   db.messages.push(msg);
   saveDB(db);
   broadcast(parseInt(to_id), { type: 'message', message: msg });
+
+  // Push уведомление если получатель офлайн
+  const isOnline = clients.has(parseInt(to_id));
+  if (!isOnline) {
+    const sender = db.users.find(u => u.id === req.userId);
+    sendPushNotification(parseInt(to_id), {
+      title: sender ? sender.display_name : 'NEXUS',
+      body: content.trim(),
+      icon: '/icon.png'
+    });
+  }
+
   res.json(msg);
 });
 
@@ -223,6 +276,17 @@ app.post('/api/files/send', auth, upload.single('file'), (req, res) => {
   db.messages.push(msg);
   saveDB(db);
   broadcast(to_id, { type: 'message', message: msg });
+
+  const isOnline = clients.has(to_id);
+  if (!isOnline) {
+    const sender = db.users.find(u => u.id === req.userId);
+    sendPushNotification(to_id, {
+      title: sender ? sender.display_name : 'NEXUS',
+      body: '📎 ' + req.file.originalname,
+      icon: '/icon.png'
+    });
+  }
+
   res.json(msg);
 });
 
@@ -256,6 +320,22 @@ wss.on('connection', (ws) => {
 function broadcast(userId, data) {
   const ws = clients.get(userId);
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data));
+}
+
+// ── PUSH HELPER ───────────────────────────────────────
+function sendPushNotification(userId, payload) {
+  const db = loadDB();
+  const sub = db.push_subscriptions.find(s => s.user_id === userId);
+  if (!sub) return;
+  webpush.sendNotification(sub.subscription, JSON.stringify(payload))
+    .catch(err => {
+      // Подписка устарела — удаляем
+      if (err.statusCode === 404 || err.statusCode === 410) {
+        const db2 = loadDB();
+        db2.push_subscriptions = db2.push_subscriptions.filter(s => s.user_id !== userId);
+        saveDB(db2);
+      }
+    });
 }
 
 // ── ЗАПУСК ────────────────────────────────────────────
