@@ -38,8 +38,10 @@ function switchTab(tab) {
   document.getElementById('tabReg').classList.toggle('active', tab === 'reg');
   document.getElementById('loginForm').style.display = tab === 'login' ? '' : 'none';
   document.getElementById('regForm').style.display = tab === 'reg' ? '' : 'none';
+  document.getElementById('resetForm').style.display = tab === 'reset' ? '' : 'none';
   document.getElementById('loginErr').textContent = '';
   document.getElementById('regErr').textContent = '';
+  document.getElementById('resetErr').textContent = '';
 }
 
 async function doLogin() {
@@ -69,7 +71,38 @@ async function doRegister() {
   }
 }
 
-function saveSession(data) {
+async function doReset() {
+  const username = document.getElementById('rstUser').value.trim();
+  const password = document.getElementById('rstPass').value;
+  const password2 = document.getElementById('rstPass2').value;
+  document.getElementById('resetErr').textContent = '';
+
+  if (!username || !password) {
+    document.getElementById('resetErr').textContent = 'Заполните все поля';
+    return;
+  }
+  if (password !== password2) {
+    document.getElementById('resetErr').textContent = 'Пароли не совпадают';
+    return;
+  }
+  try {
+    await fetch('/api/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    }).then(async r => {
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      return d;
+    });
+    switchTab('login');
+    document.getElementById('lUser').value = username;
+    document.getElementById('loginErr').textContent = '';
+    showToast('✅ Пароль изменён — войди с новым паролем');
+  } catch (e) {
+    document.getElementById('resetErr').textContent = e.message;
+  }
+}
   S.token = data.token;
   S.me = data.user;
   localStorage.setItem('nexus_token', data.token);

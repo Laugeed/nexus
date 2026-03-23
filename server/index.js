@@ -61,6 +61,25 @@ function auth(req, res, next) {
   next();
 }
 
+// ── СБРОС ПАРОЛЯ ─────────────────────────────────────
+app.post('/api/reset-password', (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password)
+    return res.status(400).json({ error: 'Заполните все поля' });
+
+  const db = loadDB();
+  const idx = db.users.findIndex(u => u.username === username);
+  if (idx === -1)
+    return res.status(404).json({ error: 'Пользователь не найден' });
+
+  db.users[idx].password_hash = bcrypt.hashSync(password, 10);
+  // Удаляем все старые сессии этого пользователя
+  db.sessions = db.sessions.filter(s => s.user_id !== db.users[idx].id);
+  saveDB(db);
+
+  res.json({ ok: true });
+});
+
 // ── РЕГИСТРАЦИЯ ───────────────────────────────────────
 app.post('/api/register', (req, res) => {
   const { username, display_name, password } = req.body;
