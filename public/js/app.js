@@ -528,6 +528,44 @@ function showToast(msg) {
   toastT = setTimeout(() => t.classList.remove('show'), 3000);
 }
 
+// ── MOBILE NAV ─────────────────────────────
+function isMobile() { return window.innerWidth <= 600; }
+
+function mobileNav(panel) {
+  document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'));
+  if (panel === 'chats') {
+    document.getElementById('mnavChats').classList.add('active');
+    document.getElementById('panelChats').style.display = '';
+    document.getElementById('panelContacts').style.display = 'none';
+  } else {
+    document.getElementById('mnavContacts').classList.add('active');
+    document.getElementById('panelChats').style.display = 'none';
+    document.getElementById('panelContacts').style.display = '';
+    renderContactsFullList();
+  }
+  if (isMobile()) {
+    document.getElementById('sidebar').classList.remove('hidden');
+    document.getElementById('mainArea').classList.remove('visible');
+  }
+}
+
+function goBack() {
+  if (isMobile()) {
+    document.getElementById('sidebar').classList.remove('hidden');
+    document.getElementById('mainArea').classList.remove('visible');
+  }
+}
+
+// Патч openChat для мобильного
+const _origOpenChat = openChat;
+openChat = async function(contact) {
+  await _origOpenChat(contact);
+  if (isMobile()) {
+    document.getElementById('sidebar').classList.add('hidden');
+    document.getElementById('mainArea').classList.add('visible');
+  }
+};
+
 // ── KEYBOARD SHORTCUTS ─────────────────
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {

@@ -186,3 +186,124 @@ textarea::placeholder{color:var(--dim)}
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--s3);border-radius:4px}
+
+/* ══ МОБИЛЬНАЯ АДАПТАЦИЯ ══════════════════════════════ */
+
+/* Планшет */
+@media (max-width: 768px) {
+  .lnav { width: 54px; min-width: 54px; }
+  .sidebar { width: 240px; min-width: 240px; }
+}
+
+/* Телефон — показываем только один экран за раз */
+@media (max-width: 600px) {
+  html, body { overflow: hidden; height: 100%; }
+
+  .layout { position: relative; overflow: hidden; }
+
+  /* Скрываем левый нав — иконки переносим в низ */
+  .lnav { display: none; }
+
+  /* Сайдбар — полная ширина */
+  .sidebar {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 100%;
+    min-width: 100%;
+    z-index: 10;
+    transition: transform 0.3s ease;
+  }
+
+  /* Когда открыт чат — сдвигаем сайдбар влево */
+  .sidebar.hidden {
+    transform: translateX(-100%);
+  }
+
+  /* Основная область — полная ширина */
+  .main {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    width: 100%;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    z-index: 5;
+  }
+
+  /* Когда открыт чат — показываем main */
+  .main.visible {
+    transform: translateX(0);
+  }
+
+  /* Кнопка "назад" в топбаре */
+  .back-btn {
+    display: flex !important;
+  }
+
+  /* Модалки на весь экран */
+  .modal {
+    width: 92vw;
+    padding: 18px;
+  }
+
+  /* Тост снизу */
+  .toast { bottom: 80px; }
+
+  /* Нижняя навигация */
+  .mobile-nav {
+    display: flex !important;
+  }
+}
+
+/* Кнопка назад — скрыта на десктопе */
+.back-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px; height: 36px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 20px;
+  transition: all .15s;
+  margin-right: 4px;
+}
+.back-btn:hover { background: var(--s2); color: var(--text); }
+
+/* Нижняя навигация — скрыта на десктопе */
+.mobile-nav {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 60px;
+  background: var(--s1);
+  border-top: 1px solid var(--border);
+  z-index: 20;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 20px;
+}
+
+.mobile-nav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  color: var(--dim);
+  transition: color .15s;
+  padding: 6px 16px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+}
+.mobile-nav-btn.active { color: var(--accent); }
+.mobile-nav-btn svg { width: 22px; height: 22px; }
+.mobile-nav-btn span { font-size: 10px; font-family: var(--h); font-weight: 600; }
+
+/* Отступ снизу под мобильную навигацию */
+@media (max-width: 600px) {
+  .sidebar, .main { bottom: 60px; }
+  .input-bar { padding-bottom: 10px; }
+}
