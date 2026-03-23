@@ -37,11 +37,12 @@ function switchTab(tab) {
   document.getElementById('tabLogin').classList.toggle('active', tab === 'login');
   document.getElementById('tabReg').classList.toggle('active', tab === 'reg');
   document.getElementById('loginForm').style.display = tab === 'login' ? '' : 'none';
-  document.getElementById('regForm').style.display = tab === 'reg' ? '' : 'none';
+  document.getElementById('regForm').style.display  = tab === 'reg'   ? '' : 'none';
   document.getElementById('resetForm').style.display = tab === 'reset' ? '' : 'none';
   document.getElementById('loginErr').textContent = '';
-  document.getElementById('regErr').textContent = '';
-  document.getElementById('resetErr').textContent = '';
+  document.getElementById('regErr').textContent   = '';
+  if (document.getElementById('resetErr'))
+    document.getElementById('resetErr').textContent = '';
 }
 
 async function doLogin() {
