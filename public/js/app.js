@@ -104,6 +104,8 @@ async function doReset() {
     document.getElementById('resetErr').textContent = e.message;
   }
 }
+
+function saveSession(data) {
   S.token = data.token;
   S.me = data.user;
   localStorage.setItem('nexus_token', data.token);
