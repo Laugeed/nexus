@@ -128,6 +128,7 @@ async function bootApp() {
   await loadContacts();
   connectWS();
   registerPush();
+  initSwipeBack(); // один раз
 }
 
 // ── PUSH УВЕДОМЛЕНИЯ ───────────────────
@@ -393,17 +394,11 @@ function buildMsgEl(msg) {
   wrap.className = 'msg-wrap ' + (isOut ? 'out' : 'in');
   wrap.dataset.msgId = msg.id;
 
-  // Reply hint (появляется при свайпе)
-  const hint = document.createElement('div');
-  hint.className = 'reply-hint';
-  hint.textContent = '↩';
-  wrap.appendChild(hint);
-
   const time = new Date(msg.created_at).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
 
-  let html = '';
+  let html = '<div class="reply-hint">↩</div>';
 
-  // Цитата если это ответ
+  // Цитата если ответ
   if (msg.reply_to_text) {
     html += `<div class="msg-reply-quote"><strong>${esc(msg.reply_to_sender || '')}</strong>${esc(msg.reply_to_text)}</div>`;
   }
@@ -411,10 +406,9 @@ function buildMsgEl(msg) {
   if (msg.type === 'file') {
     const size = formatSize(msg.file_size);
     const ext = (msg.file_name || '').split('.').pop().toLowerCase();
-    const icon = fileIcon(ext);
     html += `
       <a class="msg-file" href="${msg.content}" download="${esc(msg.file_name)}" target="_blank">
-        <div class="file-icon">${icon}</div>
+        <div class="file-icon">${fileIcon(ext)}</div>
         <div class="file-info">
           <div class="file-name">${esc(msg.file_name)}</div>
           <div class="file-size">${size}</div>
@@ -422,17 +416,13 @@ function buildMsgEl(msg) {
         </div>
       </a>`;
   } else {
-    html += `<div class="msg-bubble">${esc(msg.content).replace(/\n/g, '<br>')}</div>`;
+    html += `<div class="msg-bubble">${esc(msg.content || '').replace(/\n/g, '<br>')}</div>`;
   }
 
   html += `<div class="msg-meta">${time}${isOut ? ' <span class="chk">✓✓</span>' : ''}</div>`;
+  wrap.innerHTML = html;
 
-  const inner = document.createElement('div');
-  inner.style.cssText = 'display:contents';
-  inner.innerHTML = html;
-  wrap.appendChild(inner);
-
-  // Подключаем свайп для ответа
+  // Свайп для ответа
   initMsgSwipe(wrap, msg);
 
   return wrap;
@@ -662,108 +652,103 @@ openChat = async function(contact) {
   if (isMobile()) {
     document.getElementById('sidebar').classList.add('hidden');
     document.getElementById('mainArea').classList.add('visible');
-    initSwipeBack();
   }
 };
 
-// ── СВАЙП НАЗАД ИЗ ЧАТА (левый край → вправо) ──────
+// ── СВАЙП НАЗАД (один раз при старте) ──────────────
+let swipeBackInited = false;
 function initSwipeBack() {
+  if (swipeBackInited) return;
+  swipeBackInited = true;
+
   const main = document.getElementById('mainArea');
-  const sidebar = document.getElementById('sidebar');
-  let startX = 0, startY = 0, dragging = false;
+  let sx = 0, sy = 0, active = false;
 
   main.addEventListener('touchstart', e => {
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-    dragging = startX < 30; // только от левого края
+    sx = e.touches[0].clientX;
+    sy = e.touches[0].clientY;
+    active = sx < 28;
   }, { passive: true });
 
   main.addEventListener('touchmove', e => {
-    if (!dragging) return;
-    const dx = e.touches[0].clientX - startX;
-    const dy = Math.abs(e.touches[0].clientY - startY);
-    if (dy > 40) { dragging = false; return; }
+    if (!active) return;
+    const dx = e.touches[0].clientX - sx;
+    const dy = Math.abs(e.touches[0].clientY - sy);
+    if (dy > 50) { active = false; main.style.transform = ''; return; }
     if (dx > 0) {
-      main.style.transform = `translateX(${Math.min(dx, window.innerWidth)}px)`;
       main.style.transition = 'none';
+      main.style.transform = `translateX(${Math.min(dx, window.innerWidth)}px)`;
     }
   }, { passive: true });
 
   main.addEventListener('touchend', e => {
-    if (!dragging) return;
-    dragging = false;
-    const dx = e.changedTouches[0].clientX - startX;
+    if (!active) return;
+    active = false;
+    const dx = e.changedTouches[0].clientX - sx;
     main.style.transition = '';
-    if (dx > 80) {
-      goBack();
-      main.style.transform = '';
-    } else {
-      main.style.transform = '';
-    }
+    main.style.transform = '';
+    if (dx > 80) goBack();
   }, { passive: true });
 }
 
 // ── СВАЙП ПО СООБЩЕНИЮ ДЛЯ ОТВЕТА ─────────────────
-function initMsgSwipe(el, msg, chat) {
-  let startX = 0, startY = 0, swiping = false, triggered = false;
+function initMsgSwipe(el, msg) {
   const isOut = msg.from_id === S.me.id;
+  let sx = 0, sy = 0, moving = false, fired = false;
 
   el.addEventListener('touchstart', e => {
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-    swiping = false;
-    triggered = false;
+    // Не перехватываем если это зона свайпа назад
+    if (e.touches[0].clientX < 28) return;
+    sx = e.touches[0].clientX;
+    sy = e.touches[0].clientY;
+    moving = false;
+    fired = false;
   }, { passive: true });
 
   el.addEventListener('touchmove', e => {
-    const dx = e.touches[0].clientX - startX;
-    const dy = Math.abs(e.touches[0].clientY - startY);
-    if (dy > 20 && !swiping) return;
+    if (sx === 0) return;
+    const dx = e.touches[0].clientX - sx;
+    const dy = Math.abs(e.touches[0].clientY - sy);
 
-    // Для исходящих — свайп влево (dx < 0)
-    // Для входящих — свайп вправо (dx > 0)
-    const swipeDir = isOut ? -dx : dx;
-    if (swipeDir > 5) {
-      swiping = true;
+    // Если вертикальный скролл — игнорируем
+    if (!moving && dy > Math.abs(dx)) return;
+
+    // Для исходящих — свайп влево, для входящих — вправо
+    const dir = isOut ? -dx : dx;
+    if (dir > 8) {
+      moving = true;
+      const offset = Math.min(dir, 65);
       el.classList.add('swiping');
-      const offset = Math.min(swipeDir, 70);
-      el.style.transform = isOut
-        ? `translateX(${-offset}px)`
-        : `translateX(${offset}px)`;
+      el.style.transform = isOut ? `translateX(${-offset}px)` : `translateX(${offset}px)`;
 
-      if (offset > 40) {
+      if (offset > 40 && !fired) {
+        fired = true;
         el.classList.add('show-reply-hint');
-        if (!triggered) {
-          triggered = true;
-          // Haptic feedback
-          if (navigator.vibrate) navigator.vibrate(30);
-        }
-      } else {
+        if (navigator.vibrate) navigator.vibrate(25);
+      } else if (offset <= 40) {
+        fired = false;
         el.classList.remove('show-reply-hint');
-        triggered = false;
       }
     }
   }, { passive: true });
 
   el.addEventListener('touchend', () => {
-    if (!swiping) return;
+    if (!moving) return;
     el.classList.remove('swiping', 'show-reply-hint');
     el.style.transform = '';
+    moving = false;
+    sx = 0;
 
-    if (triggered) {
-      const contact = CONTACTS ? null : null;
-      const senderName = msg.out
-        ? 'Вы'
-        : (msg.sender || (S.activeContact ? S.activeContact.display_name : ''));
+    if (fired) {
+      const senderName = isOut ? 'Вы' : (msg.sender || (S.activeContact ? S.activeContact.display_name : ''));
       startReply(msg.id, senderName, msg.content || msg.file_name || '');
     }
-    swiping = false;
-    triggered = false;
+    fired = false;
   }, { passive: true });
 }
 
 function startReply(msgId, senderName, text) {
-  replyTarget = { msgId, sender: senderName, text: text.slice(0, 80) };
+  replyTarget = { msgId, sender: senderName, text };
   document.getElementById('replyName').textContent = senderName;
   document.getElementById('replyText').textContent = text.slice(0, 80);
   document.getElementById('replyBox').style.display = 'flex';
@@ -781,18 +766,10 @@ function toggleDotsMenu() {
       <button class="close-btn" onclick="closeModal('modalProfile')">✕</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
-      <button class="settings-item-btn" onclick="closeModal('modalProfile');showToast('🔍 Поиск в чате')">
-        🔍 Поиск в переписке
-      </button>
-      <button class="settings-item-btn" onclick="closeModal('modalProfile');sendFileDialog()">
-        📎 Отправить файл
-      </button>
-      <button class="settings-item-btn" onclick="closeModal('modalProfile');showToast('🔔 Уведомления изменены')">
-        🔕 Замьютить
-      </button>
-      <button class="settings-item-btn" onclick="closeModal('modalProfile');showToast('🗑 Чат очищен')">
-        🗑 Очистить историю
-      </button>
+      <button class="settings-item-btn" onclick="closeModal('modalProfile');showToast('🔍 Поиск в чате')">🔍 Поиск в переписке</button>
+      <button class="settings-item-btn" onclick="closeModal('modalProfile');sendFileDialog()">📎 Отправить файл</button>
+      <button class="settings-item-btn" onclick="closeModal('modalProfile');showToast('🔕 Замьючено')">🔕 Замьютить</button>
+      <button class="settings-item-btn danger" onclick="closeModal('modalProfile');showToast('🗑 Очищено')">🗑 Очистить историю</button>
     </div>
   `;
   openModal('modalProfile');
