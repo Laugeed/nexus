@@ -232,6 +232,8 @@ app.post('/api/messages', auth, (req, res) => {
   const msg = {
     id: nextId(db.messages), from_id: req.userId, to_id: parseInt(to_id),
     type: 'text', content: content.trim(), file_name: null, file_size: null,
+    reply_to_text: req.body.reply_to_text || null,
+    reply_to_sender: req.body.reply_to_sender || null,
     created_at: new Date().toISOString()
   };
   db.messages.push(msg);

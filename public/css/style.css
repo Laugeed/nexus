@@ -195,66 +195,96 @@ textarea::placeholder{color:var(--dim)}
   .sidebar { width: 240px; min-width: 240px; }
 }
 
-/* Телефон — показываем только один экран за раз */
+/* Телефон */
 @media (max-width: 600px) {
-  html, body { overflow: hidden; height: 100%; }
+  /* FIX 1: Клавиатура не ломает layout — фиксируем высоту через dvh */
+  html { height: 100%; }
+  body {
+    height: 100%;
+    /* Запрещаем resize при открытии клавиатуры */
+    overflow: hidden;
+  }
 
-  .layout { position: relative; overflow: hidden; }
+  /* FIX 2: Safe area под Dynamic Island / чёлку */
+  #appScreen {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  #authScreen {
+    padding-top: env(safe-area-inset-top);
+  }
 
-  /* Скрываем левый нав — иконки переносим в низ */
+  .layout {
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+  }
+
   .lnav { display: none; }
 
-  /* Сайдбар — полная ширина */
   .sidebar {
     position: absolute;
     top: 0; left: 0; bottom: 0;
     width: 100%;
     min-width: 100%;
     z-index: 10;
-    transition: transform 0.3s ease;
+    transition: transform 0.3s cubic-bezier(.4,0,.2,1);
   }
+  .sidebar.hidden { transform: translateX(-100%); }
 
-  /* Когда открыт чат — сдвигаем сайдбар влево */
-  .sidebar.hidden {
-    transform: translateX(-100%);
-  }
-
-  /* Основная область — полная ширина */
   .main {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
     width: 100%;
     transform: translateX(100%);
-    transition: transform 0.3s ease;
+    transition: transform 0.3s cubic-bezier(.4,0,.2,1);
     z-index: 5;
   }
+  .main.visible { transform: translateX(0); }
 
-  /* Когда открыт чат — показываем main */
-  .main.visible {
-    transform: translateX(0);
-  }
+  .back-btn { display: flex !important; }
 
-  /* Кнопка "назад" в топбаре */
-  .back-btn {
-    display: flex !important;
-  }
-
-  /* Модалки на весь экран */
-  .modal {
-    width: 92vw;
-    padding: 18px;
-  }
-
-  /* Тост снизу */
+  .modal { width: 92vw; padding: 18px; }
   .toast { bottom: 80px; }
+  .mobile-nav { display: flex !important; }
 
-  /* Нижняя навигация */
-  .mobile-nav {
-    display: flex !important;
+  /* FIX 1: Input bar прилипает к низу и не уезжает */
+  #chatArea {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
   }
+  .msgs {
+    flex: 1;
+    overflow-y: auto;
+    /* Важно — не меняем высоту при открытии клавиатуры */
+    min-height: 0;
+  }
+  .input-bar {
+    flex-shrink: 0;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  /* Модальное окно поиска — не уезжает за клавиатуру */
+  .modal-bg {
+    align-items: flex-start;
+    padding-top: max(60px, env(safe-area-inset-top, 44px));
+  }
+  .modal {
+    max-height: 70vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  #userSearchResults {
+    overflow-y: auto;
+    max-height: 40vh;
+  }
+
+  .sidebar, .main { bottom: 60px; }
 }
 
-/* Кнопка назад — скрыта на десктопе */
+/* Кнопка назад */
 .back-btn {
   display: none;
   align-items: center;
@@ -265,13 +295,14 @@ textarea::placeholder{color:var(--dim)}
   background: transparent;
   color: var(--muted);
   cursor: pointer;
-  font-size: 20px;
+  font-size: 22px;
   transition: all .15s;
-  margin-right: 4px;
+  margin-right: 2px;
+  flex-shrink: 0;
 }
 .back-btn:hover { background: var(--s2); color: var(--text); }
 
-/* Нижняя навигация — скрыта на десктопе */
+/* Нижняя навигация */
 .mobile-nav {
   display: none;
   position: fixed;
@@ -283,8 +314,8 @@ textarea::placeholder{color:var(--dim)}
   align-items: center;
   justify-content: space-around;
   padding: 0 20px;
+  padding-bottom: env(safe-area-inset-bottom);
 }
-
 .mobile-nav-btn {
   display: flex;
   flex-direction: column;
@@ -302,8 +333,66 @@ textarea::placeholder{color:var(--dim)}
 .mobile-nav-btn svg { width: 22px; height: 22px; }
 .mobile-nav-btn span { font-size: 10px; font-family: var(--h); font-weight: 600; }
 
-/* Отступ снизу под мобильную навигацию */
-@media (max-width: 600px) {
-  .sidebar, .main { bottom: 60px; }
-  .input-bar { padding-bottom: 10px; }
+/* ── СВАЙП НА СООБЩЕНИИ (ответ) ── */
+.msg-wrap {
+  touch-action: pan-y;
+  position: relative;
+  transition: transform 0.15s ease;
 }
+.msg-wrap.swiping { transition: none; }
+.reply-hint {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+  z-index: 1;
+}
+.msg-wrap.in .reply-hint  { right: -40px; }
+.msg-wrap.out .reply-hint { left: -40px; }
+.msg-wrap.show-reply-hint .reply-hint { opacity: 1; }
+
+/* ── REPLY QUOTE В СООБЩЕНИИ ── */
+.msg-reply-quote {
+  background: rgba(255,255,255,0.06);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 5px 10px;
+  margin-bottom: 5px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.msg-reply-quote strong {
+  color: var(--accent);
+  font-size: 11px;
+  display: block;
+  margin-bottom: 2px;
+  font-family: var(--h);
+}
+
+
+/* Settings item button */
+.settings-item-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: var(--r, 12px);
+  cursor: pointer;
+  font-size: 13.5px;
+  color: var(--text);
+  text-align: left;
+  transition: background .12s;
+}
+.settings-item-btn:hover { background: var(--s3); }
+.settings-item-btn.danger { color: var(--red); }
