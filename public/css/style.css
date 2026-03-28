@@ -187,75 +187,55 @@ textarea::placeholder{color:var(--dim)}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--s3);border-radius:4px}
 
+
 /* ══ МОБИЛЬНАЯ АДАПТАЦИЯ ══════════════════════════════ */
 
-/* Планшет */
 @media (max-width: 768px) {
   .lnav { width: 54px; min-width: 54px; }
   .sidebar { width: 240px; min-width: 240px; }
 }
 
-/* Телефон */
 @media (max-width: 600px) {
-  /* FIX: Клавиатура не меняет высоту страницы */
-  html {
-    height: 100%;
-    height: -webkit-fill-available;
-  }
-  body {
-    height: 100%;
-    height: -webkit-fill-available;
-    overflow: hidden;
+  /* Фиксируем тело — клавиатура не сдвигает страницу */
+  html, body {
     position: fixed;
     width: 100%;
-  }
-
-  /* FIX: Safe area под Dynamic Island / чёлку */
-  #appScreen {
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-  #authScreen {
-    padding-top: env(safe-area-inset-top);
-  }
-
-  .layout {
-    position: relative;
-    overflow: hidden;
     height: 100%;
+    overflow: hidden;
   }
 
-  .lnav { display: none; }
+  /* Safe area для Dynamic Island / чёлки */
+  #appScreen  { padding-top: env(safe-area-inset-top); }
+  #authScreen { padding-top: env(safe-area-inset-top); }
 
+  .layout { position: relative; overflow: hidden; height: 100%; }
+  .lnav   { display: none; }
+
+  /* Сайдбар — на весь экран */
   .sidebar {
     position: absolute;
-    top: 0; left: 0; bottom: 0;
+    inset: 0;
     width: 100%;
     min-width: 100%;
     z-index: 10;
-    transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+    transition: transform 0.28s cubic-bezier(.4,0,.2,1);
   }
   .sidebar.hidden { transform: translateX(-100%); }
 
+  /* Основная область */
   .main {
     position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    width: 100%;
+    inset: 0;
     transform: translateX(100%);
-    transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+    transition: transform 0.28s cubic-bezier(.4,0,.2,1);
     z-index: 5;
   }
   .main.visible { transform: translateX(0); }
 
-  .back-btn { display: flex !important; }
-  .modal { width: 92vw; padding: 18px; }
-  .toast { bottom: 80px; }
-  .mobile-nav { display: flex !important; }
-
-  /* Чат — не прыгает при открытии клавиатуры */
+  /* Чат — жёсткая колонка, не прыгает при клавиатуре */
   #chatArea {
     position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
+    inset: 0;
     display: flex;
     flex-direction: column;
   }
@@ -264,30 +244,25 @@ textarea::placeholder{color:var(--dim)}
     min-height: 0;
     overflow-y: auto;
   }
-  .input-bar {
-    flex-shrink: 0;
-    position: relative;
-  }
+  .input-bar { flex-shrink: 0; }
 
-  /* Поиск контактов — не уезжает за клавиатуру */
+  /* Кнопка назад */
+  .back-btn { display: flex !important; }
+
+  /* Модалки */
+  .modal { width: 92vw; padding: 18px; }
   .modal-bg {
     align-items: flex-start;
     padding-top: max(60px, env(safe-area-inset-top, 44px));
   }
-  .modal {
-    max-height: 65vh;
-    display: flex;
-    flex-direction: column;
-  }
-  #userSearchResults {
-    overflow-y: auto;
-    flex: 1;
-  }
+  #userSearchResults { max-height: 45vh; overflow-y: auto; }
 
+  .toast { bottom: 76px; }
+  .mobile-nav { display: flex !important; }
   .sidebar, .main { bottom: 60px; }
 }
 
-/* Кнопка назад */
+/* Кнопка назад — скрыта на десктопе */
 .back-btn {
   display: none;
   align-items: center;
@@ -300,7 +275,6 @@ textarea::placeholder{color:var(--dim)}
   cursor: pointer;
   font-size: 22px;
   transition: all .15s;
-  margin-right: 2px;
   flex-shrink: 0;
 }
 .back-btn:hover { background: var(--s2); color: var(--text); }
@@ -316,61 +290,51 @@ textarea::placeholder{color:var(--dim)}
   z-index: 20;
   align-items: center;
   justify-content: space-around;
-  padding: 0 20px;
   padding-bottom: env(safe-area-inset-bottom);
 }
 .mobile-nav-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  cursor: pointer;
-  color: var(--dim);
+  display: flex; flex-direction: column;
+  align-items: center; gap: 3px;
+  cursor: pointer; color: var(--dim);
   transition: color .15s;
   padding: 6px 16px;
-  border-radius: 12px;
-  border: none;
+  border-radius: 12px; border: none;
   background: transparent;
 }
 .mobile-nav-btn.active { color: var(--accent); }
-.mobile-nav-btn svg { width: 22px; height: 22px; }
-.mobile-nav-btn span { font-size: 10px; font-family: var(--h); font-weight: 600; }
+.mobile-nav-btn svg   { width: 22px; height: 22px; }
+.mobile-nav-btn span  { font-size: 10px; font-family: var(--h); font-weight: 600; }
 
-/* ── СВАЙП НА СООБЩЕНИИ (ответ) ── */
-.msg-wrap {
-  touch-action: pan-y;
-  position: relative;
-  transition: transform 0.15s ease;
-}
-.msg-wrap.swiping { transition: none; }
+/* ── СВАЙП ОТВЕТА ── */
+.msg-wrap { touch-action: pan-y; }
+.msg-wrap.swiping { transition: none !important; }
+
 .reply-hint {
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 32px; height: 32px;
+  top: 50%; transform: translateY(-50%);
+  width: 30px; height: 30px;
   border-radius: 50%;
   background: var(--accent);
   display: flex; align-items: center; justify-content: center;
-  font-size: 15px;
+  font-size: 14px;
   opacity: 0;
-  transition: opacity 0.15s;
   pointer-events: none;
+  transition: opacity .15s;
   z-index: 1;
 }
-.msg-wrap.in .reply-hint  { right: -40px; }
-.msg-wrap.out .reply-hint { left: -40px; }
+.msg-wrap.in  .reply-hint { left:  -38px; }
+.msg-wrap.out .reply-hint { right: -38px; }
 .msg-wrap.show-reply-hint .reply-hint { opacity: 1; }
 
-/* ── REPLY QUOTE В СООБЩЕНИИ ── */
+/* ── REPLY QUOTE ── */
 .msg-reply-quote {
-  background: rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.05);
   border-left: 3px solid var(--accent);
   border-radius: 8px;
   padding: 5px 10px;
   margin-bottom: 5px;
   font-size: 12px;
   color: var(--muted);
-  cursor: pointer;
 }
 .msg-reply-quote strong {
   color: var(--accent);
@@ -380,17 +344,14 @@ textarea::placeholder{color:var(--dim)}
   font-family: var(--h);
 }
 
-
-/* Settings item button */
+/* ── SETTINGS BTN ── */
 .settings-item-btn {
   width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  display: flex; align-items: center; gap: 10px;
   padding: 12px 14px;
   background: var(--s2);
   border: 1px solid var(--border);
-  border-radius: var(--r, 12px);
+  border-radius: 12px;
   cursor: pointer;
   font-size: 13.5px;
   color: var(--text);
