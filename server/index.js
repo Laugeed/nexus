@@ -12,16 +12,17 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-// ── VAPID КЛЮЧИ (генерируются один раз) ──────────────
-const VAPID_FILE = path.join(__dirname, '..', 'vapid_keys.json');
-let vapidKeys;
-if (fs.existsSync(VAPID_FILE)) {
-  vapidKeys = JSON.parse(fs.readFileSync(VAPID_FILE, 'utf8'));
+// ── VAPID КЛЮЧИ из переменных окружения ──────────────
+const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY;
+
+if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
+  console.error('❌ Не заданы VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY в переменных окружения!');
+  console.error('   Push-уведомления не будут работать.');
 } else {
-  vapidKeys = webpush.generateVAPIDKeys();
-  fs.writeFileSync(VAPID_FILE, JSON.stringify(vapidKeys));
+  webpush.setVapidDetails('mailto:nexus@app.com', VAPID_PUBLIC, VAPID_PRIVATE);
+  console.log('✅ VAPID ключи загружены');
 }
-webpush.setVapidDetails('mailto:nexus@app.com', vapidKeys.publicKey, vapidKeys.privateKey);
 
 // ── БАЗА ДАННЫХ (JSON файл) ───────────────────────────
 const DB_FILE = path.join(__dirname, '..', 'nexus_data.json');
@@ -79,7 +80,8 @@ function auth(req, res, next) {
 
 // Отдать публичный VAPID ключ фронтенду
 app.get('/api/push/vapid-public-key', (req, res) => {
-  res.json({ publicKey: vapidKeys.publicKey });
+  if (!VAPID_PUBLIC) return res.status(500).json({ error: 'VAPID не настроен' });
+  res.json({ publicKey: VAPID_PUBLIC });
 });
 
 // Сохранить подписку
@@ -326,6 +328,7 @@ function broadcast(userId, data) {
 
 // ── PUSH HELPER ───────────────────────────────────────
 function sendPushNotification(userId, payload) {
+  if (!VAPID_PUBLIC || !VAPID_PRIVATE) return;
   const db = loadDB();
   const sub = db.push_subscriptions.find(s => s.user_id === userId);
   if (!sub) return;
