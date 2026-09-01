@@ -70,7 +70,7 @@ async function doReset() {
   const err = document.getElementById('resetErr');
   err.textContent = '';
   if (!username || !password) { err.textContent = 'Заполните все поля'; return; }
-  if (password !== password2)  { err.textContent = 'Пароли не совпадают'; return; }
+  if (password !== password2) { err.textContent = 'Пароли не совпадают'; return; }
   try {
     const r = await fetch('/api/reset-password', {
       method: 'POST',
@@ -210,7 +210,7 @@ function renderContactsFullList() {
   });
 }
 
-// ── SEARCH USERS ─────────────────────────
+// ── SEARCH USERS (десктоп — модальное окно) ──────────
 let searchTimer;
 async function searchUsers() {
   clearTimeout(searchTimer);
@@ -242,7 +242,56 @@ async function searchUsers() {
   }, 350);
 }
 
+// ── SEARCH USERS (мобильный — в сайдбаре) ───────────
+let searchTimerMobile;
+async function searchUsersMobile() {
+  clearTimeout(searchTimerMobile);
+  const q   = document.getElementById('searchUserInput').value.trim();
+  const res = document.getElementById('searchUserResults');
+  if (q.length < 2) {
+    res.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:16px">Введите минимум 2 символа</div>';
+    return;
+  }
+  res.innerHTML = '<div style="color:var(--dim);font-size:13px;padding:16px">Поиск...</div>';
+  searchTimerMobile = setTimeout(async () => {
+    try {
+      const users = await api('GET', `/api/users/search?q=${encodeURIComponent(q)}`);
+      if (!users.length) {
+        res.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:16px">Никого не найдено</div>';
+        return;
+      }
+      res.innerHTML = '';
+      users.forEach(u => {
+        const isContact = S.contacts.some(c => c.id === u.id);
+        const div = document.createElement('div');
+        div.className = 'contact-row';
+        div.innerHTML = `
+          <div class="c-ava">${u.avatar_emoji}</div>
+          <div class="c-meta">
+            <div class="c-name">${esc(u.display_name)}</div>
+            <div class="c-preview">@${esc(u.username)}</div>
+          </div>
+          <button class="ur-btn ${isContact ? 'added' : ''}" onclick="addContactMobile(${u.id},this)">
+            ${isContact ? 'Добавлен' : '+ Добавить'}
+          </button>`;
+        res.appendChild(div);
+      });
+    } catch (e) {
+      res.innerHTML = `<div style="color:var(--red);font-size:13px;padding:16px">${e.message}</div>`;
+    }
+  }, 350);
+}
+
 async function addContact(contactId, btn) {
+  try {
+    const data = await api('POST', '/api/contacts', { contact_id: contactId });
+    btn.textContent = 'Добавлен'; btn.classList.add('added');
+    await loadContacts();
+    showToast(`✅ ${data.contact.display_name} добавлен`);
+  } catch (e) { showToast('❌ ' + e.message); }
+}
+
+async function addContactMobile(contactId, btn) {
   try {
     const data = await api('POST', '/api/contacts', { contact_id: contactId });
     btn.textContent = 'Добавлен'; btn.classList.add('added');
@@ -260,10 +309,10 @@ async function openChat(contact) {
   const ca = document.getElementById('chatArea');
   ca.style.display = 'flex';
 
-  document.getElementById('chatAva').textContent  = contact.avatar_emoji;
-  document.getElementById('chatName').textContent = contact.display_name;
+  document.getElementById('chatAva').textContent    = contact.avatar_emoji;
+  document.getElementById('chatName').textContent   = contact.display_name;
   document.getElementById('chatStatus').textContent = '@' + contact.username;
-  document.getElementById('chatStatus').className  = 'topbar-status off';
+  document.getElementById('chatStatus').className   = 'topbar-status off';
 
   renderContactList();
   cancelReply();
@@ -297,7 +346,6 @@ async function openChat(contact) {
 
   document.getElementById('msgInput').focus();
 
-  // Mobile — показать чат
   if (window.innerWidth <= 600) {
     document.getElementById('sidebar').classList.add('hidden');
     document.getElementById('mainArea').classList.add('visible');
@@ -320,7 +368,7 @@ function buildMsgEl(msg) {
   }
 
   if (msg.type === 'file') {
-    const ext  = (msg.file_name || '').split('.').pop().toLowerCase();
+    const ext = (msg.file_name || '').split('.').pop().toLowerCase();
     html += `
       <a class="msg-file" href="${msg.content}" download="${esc(msg.file_name)}" target="_blank">
         <div class="file-icon">${fileIcon(ext)}</div>
@@ -331,7 +379,7 @@ function buildMsgEl(msg) {
         </div>
       </a>`;
   } else {
-    html += `<div class="msg-bubble">${esc(msg.content || '').replace(/\n/g,'<br>')}</div>`;
+    html += `<div class="msg-bubble">${esc(msg.content || '').replace(/\n/g, '<br>')}</div>`;
   }
 
   html += `<div class="msg-meta">${time}${isOut ? ' <span class="chk">✓✓</span>' : ''}</div>`;
@@ -375,9 +423,7 @@ async function sendMsg() {
 
   try {
     await api('POST', '/api/messages', { to_id: S.activeContact.id, content: text, ...rd });
-  } catch (e) {
-    showToast('❌ ' + e.message);
-  }
+  } catch (e) { showToast('❌ ' + e.message); }
   stopTyping();
 }
 
@@ -475,7 +521,7 @@ function initMsgSwipe(el, msg) {
   let sx = 0, sy = 0, moving = false, done = false;
 
   el.addEventListener('touchstart', e => {
-    if (e.touches[0].clientX < 30) return; // не мешать свайпу назад
+    if (e.touches[0].clientX < 30) return;
     sx = e.touches[0].clientX;
     sy = e.touches[0].clientY;
     moving = false; done = false;
@@ -485,7 +531,7 @@ function initMsgSwipe(el, msg) {
     if (sx === 0) return;
     const dx = e.touches[0].clientX - sx;
     const dy = Math.abs(e.touches[0].clientY - sy);
-    if (!moving && dy > Math.abs(dx) + 5) return; // вертикальный скролл
+    if (!moving && dy > Math.abs(dx) + 5) return;
     const dir = isOut ? -dx : dx;
     if (dir > 5) {
       moving = true;
@@ -527,11 +573,37 @@ function mobileNav(panel) {
   document.getElementById('mnavContacts').classList.toggle('active', !isChats);
   document.getElementById('panelChats').style.display    = isChats ? '' : 'none';
   document.getElementById('panelContacts').style.display = isChats ? 'none' : '';
+  document.getElementById('panelSearch').style.display   = 'none';
   if (!isChats) renderContactsFullList();
   if (window.innerWidth <= 600) {
     document.getElementById('sidebar').classList.remove('hidden');
     document.getElementById('mainArea').classList.remove('visible');
   }
+}
+
+// ── MOBILE SEARCH PANEL ──────────────────
+function showAddContact() {
+  if (window.innerWidth <= 600) {
+    // На мобильном — открываем поиск прямо в сайдбаре
+    document.getElementById('panelChats').style.display    = 'none';
+    document.getElementById('panelContacts').style.display = 'none';
+    document.getElementById('panelSearch').style.display   = 'flex';
+    document.getElementById('searchUserInput').value = '';
+    document.getElementById('searchUserResults').innerHTML =
+      '<div style="color:var(--muted);font-size:13px;padding:16px">Введите минимум 2 символа</div>';
+    setTimeout(() => document.getElementById('searchUserInput').focus(), 100);
+  } else {
+    // На десктопе — модальное окно
+    document.getElementById('userSearchInput').value = '';
+    document.getElementById('userSearchResults').innerHTML = '';
+    openModal('modalAddContact');
+    setTimeout(() => document.getElementById('userSearchInput').focus(), 300);
+  }
+}
+
+function closeMobileSearch() {
+  document.getElementById('panelSearch').style.display = 'none';
+  document.getElementById('panelChats').style.display  = '';
 }
 
 // ── DOTS MENU ────────────────────────────
@@ -570,7 +642,7 @@ async function registerPush() {
 
 function urlBase64ToUint8Array(b64) {
   const pad = '='.repeat((4 - b64.length % 4) % 4);
-  const raw = atob((b64 + pad).replace(/-/g,'+').replace(/_/g,'/'));
+  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
   return new Uint8Array([...raw].map(c => c.charCodeAt(0)));
 }
 
@@ -578,7 +650,7 @@ function urlBase64ToUint8Array(b64) {
 function setNav(el, panel) {
   document.querySelectorAll('.lnav-icon').forEach(i => i.classList.remove('active'));
   el.classList.add('active');
-  document.getElementById('panelChats').style.display    = panel === 'chats' ? '' : 'none';
+  document.getElementById('panelChats').style.display    = panel === 'chats'    ? '' : 'none';
   document.getElementById('panelContacts').style.display = panel === 'contacts' ? '' : 'none';
   if (panel === 'contacts') renderContactsFullList();
 }
@@ -603,13 +675,6 @@ function openMyProfile() {
 }
 
 // ── MODALS ───────────────────────────────
-function showAddContact() {
-  document.getElementById('userSearchInput').value = '';
-  document.getElementById('userSearchResults').innerHTML = '';
-  openModal('modalAddContact');
-  setTimeout(() => document.getElementById('userSearchInput').focus(), 300);
-}
-
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
@@ -634,14 +699,14 @@ function autoGrow(el) {
 }
 
 function esc(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function formatSize(b) {
   if (!b) return '';
   if (b < 1024) return b + ' Б';
-  if (b < 1048576) return (b/1024).toFixed(1) + ' КБ';
-  return (b/1048576).toFixed(1) + ' МБ';
+  if (b < 1048576) return (b / 1024).toFixed(1) + ' КБ';
+  return (b / 1048576).toFixed(1) + ' МБ';
 }
 
 function fileIcon(ext) {
@@ -665,8 +730,8 @@ document.addEventListener('keydown', e => {
     document.querySelectorAll('.modal-bg.open').forEach(m => m.classList.remove('open'));
 });
 
-document.getElementById('lPass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
-document.getElementById('lUser').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+document.getElementById('lPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('lUser').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
 // ── INIT ─────────────────────────────────
 (async () => {
